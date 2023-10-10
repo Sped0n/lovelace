@@ -61,7 +61,7 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
         # set graph range
         self.p1.setXRange(0, (250) * self.controller.seconds_per_sample, padding=0.02)
         self.p1.setYRange(-5, 5, padding=0.1)
-        self.p1_overlay.setYRange(-5, 5, padding=0)  # type: ignore
+        self.p1_overlay.setYRange(-5, 5, padding=0.1)
         self.p2.setYRange(-5, 5, padding=0.5)
 
         # set plot color
