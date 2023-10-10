@@ -163,7 +163,7 @@ class Device:
                     case _:
                         raise CmdContentError(f"invalid trigger edge: {cmd_content}")
             case "trigger_threshold":
-                if 0 < int(cmd_content) < 255:
+                if 0 <= int(cmd_content) <= 255:
                     packet_content = gen_packet_content(2, [int(cmd_content)])
                 else:
                     raise CmdContentError(f"invalid trigger threshold: {cmd_content}")
