@@ -21,6 +21,9 @@ class Controller:
         # default channel enable
         self.channel_enable: list[bool] = [True, True]
 
+        # default util graph content
+        self.util_graph_content: str = "Region"
+
         # gui
         self.app = QApplication([])
         self.main_window = MainWindow(controller=self)
@@ -74,9 +77,10 @@ class Controller:
         self.device.set_timeout(self.seconds_per_sample)
         self.data_time_array = np.arange(0, 250) * self.seconds_per_sample
         try:
-            self.main_window.screen.p2.setXRange(
-                0, (250) * self.seconds_per_sample, padding=0.02
-            )
+            if self.util_graph_content == "Region":
+                self.main_window.screen.p2.setXRange(
+                    0, (250) * self.seconds_per_sample, padding=0.02
+                )
             self.main_window.screen.region.setRegion(
                 [self.data_time_array[62], self.data_time_array[187]]
             )
@@ -122,11 +126,40 @@ class Controller:
         # update channel stats
         self.channel_stats_update()
 
+    def set_util_graph_state(self, on: bool) -> None:
+        self.main_window.screen.p2.setVisible(on)
+
     def set_ch1_yrange(self, value: int) -> None:
         self.main_window.screen.p1.setYRange(-5 / value, 5 / value, padding=0.1)
 
     def set_ch2_yrange(self, value: int) -> None:
         self.main_window.screen.p1_overlay.setYRange(-5 / value, 5 / value, padding=0.1)
+
+    def set_util_graph_content(self, content: str) -> None:
+        match content:
+            case "Region":
+                self.util_graph_content = content
+                self.main_window.screen.p2_ch1.setFftMode(False)
+                self.main_window.screen.p2_ch2.setFftMode(False)
+
+                self.main_window.screen.region.setVisible(True)
+                self.main_window.screen.region.setMovable(True)
+                self.main_window.screen.p2.setXRange(
+                    0, (250) * self.seconds_per_sample, padding=0.02
+                )
+                self.main_window.screen.region.setRegion(
+                    [self.data_time_array[62], self.data_time_array[187]]
+                )
+            case "FFT":
+                self.util_graph_content = content
+                self.main_window.screen.region.setVisible(False)
+                self.main_window.screen.region.setMovable(False)
+                self.main_window.screen.p2.enableAutoRange(axis="y")
+                self.main_window.screen.p2.enableAutoRange(axis="x")
+                self.main_window.screen.p2_ch1.setFftMode(True)
+                self.main_window.screen.p2_ch2.setFftMode(True)
+            case _:
+                raise ValueError(f"Unknown content: {content}")
 
     def connect_device(self, port: str) -> None:
         if port == "":

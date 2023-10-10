@@ -363,6 +363,43 @@ class AcquisitionBox(QGroupBox):
         self.button_run.setText("RUN")
 
 
+class UtilGraphBox(QGroupBox):
+    def __init__(self, controller, parent=None):
+        super().__init__("Utility Graph", parent=parent)
+        self.controller = controller
+
+        self.setCheckable(True)
+        self.setChecked(True)
+
+        layout = QHBoxLayout()
+        self.setLayout(layout)
+
+        # Region button
+        self.button_region = QPushButton("Reset")
+
+        # FFT button
+        self.button_fft = QPushButton("FFT")
+
+        # graph
+        layout.addWidget(self.button_region)
+        layout.addWidget(self.button_fft)
+
+        self.toggled.connect(self.controller.set_util_graph_state)
+        self.button_region.clicked.connect(self.on_region_button)
+        self.button_fft.clicked.connect(self.on_fft_button)
+
+    def on_region_button(self):
+        self.controller.set_util_graph_content("Region")
+        self.button_fft.setEnabled(True)
+        if self.button_fft.isEnabled():
+            self.button_region.setText("Reset")
+
+    def on_fft_button(self):
+        self.button_region.setText("Region")
+        self.controller.set_util_graph_content("FFT")
+        self.button_fft.setDisabled(True)
+
+
 class StatsBox(QGroupBox):
     def __init__(self, parent=None):
         super().__init__("Stats", parent=parent)
@@ -427,6 +464,7 @@ class ControlPanel(QFrame):
         self.time_panel = TimebaseBox(self.controller)
         self.trigger_panel = TriggerBox(self.controller)
         self.acq_panel = AcquisitionBox(self.controller)
+        self.util_panel = UtilGraphBox(self.controller)
         self.stats_panel = StatsBox()
         self.dev_panel = DeviceBox(self.controller)
 
@@ -436,8 +474,9 @@ class ControlPanel(QFrame):
         self.layout.addWidget(self.time_panel, 1, 0, 1, 1)
         self.layout.addWidget(self.acq_panel, 1, 1, 1, 1)
         self.layout.addWidget(self.trigger_panel, 2, 0, 1, 2)
-        self.layout.addWidget(self.stats_panel, 3, 0, 1, 2)
-        self.layout.addWidget(self.dev_panel, 4, 0, 1, 2)
+        self.layout.addWidget(self.util_panel, 3, 0, 1, 2)
+        self.layout.addWidget(self.stats_panel, 4, 0, 1, 2)
+        self.layout.addWidget(self.dev_panel, 5, 0, 1, 2)
 
         self.setLayout(self.layout)
 
