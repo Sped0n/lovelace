@@ -1,19 +1,21 @@
+import numpy as np
+import pyqtgraph as pg
+from PySide6.QtCore import QRegularExpression, Qt
+from PySide6.QtGui import QRegularExpressionValidator
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QMainWindow,
     QPushButton,
-    QWidget,
-    QHBoxLayout,
-    QVBoxLayout,
-    QGridLayout,
     QSlider,
-    QGroupBox,
-    QLabel,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt
-import pyqtgraph as pg
-import numpy as np
 
 
 class OscilloscopeScreen(pg.GraphicsLayoutWidget):
@@ -309,12 +311,21 @@ class TriggerBox(QGroupBox):
         self.combobox_trigger_position.addItems(["0%", "25%", "50%", "75%", "100%"])
         self.combobox_trigger_position.setCurrentIndex(0)
 
+        # trigger threshold
+        self.lineedit_trigger_threshold = QLineEdit()
+        rx = QRegularExpression("^(([1-9]{1}\d*)|(0{1}))(\.\d{0,2})?$")  # type: ignore
+        validator = QRegularExpressionValidator(rx)
+        self.lineedit_trigger_threshold.setValidator(validator)
+        self.lineedit_trigger_threshold.setText("0.0")
+
         layout.addWidget(QLabel("Trigger channel"), 0, 0)
         layout.addWidget(self.combobox_trigger_channel, 0, 1)
         layout.addWidget(QLabel("Trigger slope"), 1, 0)
         layout.addWidget(self.combobox_slope, 1, 1)
         layout.addWidget(QLabel("Trigger position"), 2, 0)
         layout.addWidget(self.combobox_trigger_position, 2, 1)
+        layout.addWidget(QLabel("Trigger threshold"), 3, 0)
+        layout.addWidget(self.lineedit_trigger_threshold, 3, 1)
 
         self.toggled.connect(self.controller.set_trigger_state)
         self.combobox_slope.currentTextChanged.connect(
@@ -326,6 +337,17 @@ class TriggerBox(QGroupBox):
         self.combobox_trigger_channel.currentTextChanged.connect(
             self.controller.set_trigger_channel
         )
+        self.lineedit_trigger_threshold.editingFinished.connect(
+            self.on_lineedit_finished
+        )
+
+    def on_lineedit_finished(self):
+        if float(self.lineedit_trigger_threshold.text()) > 5:
+            self.lineedit_trigger_threshold.setText("5.0")
+        elif float(self.lineedit_trigger_threshold.text()) < -5:
+            self.lineedit_trigger_threshold.setText("-5.0")
+        tmp = str(int((float(self.lineedit_trigger_threshold.text()) + 5) / 10 * 255))
+        self.controller.set_trigger_threshold(tmp)
 
 
 class AcquisitionBox(QGroupBox):
