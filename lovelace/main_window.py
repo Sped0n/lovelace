@@ -13,55 +13,151 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 import pyqtgraph as pg
+import numpy as np
 
 
-class OscilloscopeScreen(pg.PlotWidget):
-    def __init__(self, parent=None, plotItem=None, **kargs):
-        super().__init__(parent=parent, background="w", plotItem=plotItem, **kargs)
+class OscilloscopeScreen(pg.GraphicsLayoutWidget):
+    def __init__(self, controller, parent=None, **kargs):
+        super().__init__(parent=parent, show=True, **kargs)
 
-        styles = {"color": "k", "font-size": "12px"}
+        self.controller = controller
 
-        self.setLabel("left", "V (CH1)", **styles)
-        self.setLabel("bottom", "s", **styles)
+        styles = {"color": "#ffffff", "font-size": "12px"}
+
+        self.p1 = self.addPlot(row=1, col=0, rowspan=2)
+
+        # main plot window (channel 1) axis label setting
+        self.p1.getAxis("left").setLabel("V (CH1)", **styles)
+        self.p1.getAxis("bottom").setLabel("bottom", "s", **styles)
 
         # channel 2 as a viewbox(overlay)
-        self.overlay = pg.ViewBox()
-        self.plotItem.showAxis("right")  # type: ignore
-        self.plotItem.scene().addItem(self.overlay)  # type: ignore
-        self.plotItem.getAxis("right").linkToView(self.overlay)  # type: ignore
-        self.overlay.setXLink(self.plotItem)
-        self.plotItem.getAxis("right").setLabel("V (CH2)", **styles)  # type: ignore
+        self.p1_overlay = pg.ViewBox()
+        self.p1.showAxis("right")
+        self.p1.scene().addItem(self.p1_overlay)
+        self.p1.getAxis("right").linkToView(self.p1_overlay)
+        self.p1_overlay.setXLink(self.p1)
+        self.p1.getAxis("right").setLabel("V (CH2)", **styles)
 
-        # label
-        self.label = pg.LabelItem(justify="right", color="#ffffff")
-        self.label.setText("TEXT")
-        self.overlay.addItem(self.label)
+        # bottom overview window
+        self.p2 = self.addPlot(row=3, col=0, rowspan=1)
+        self.region = pg.LinearRegionItem()
+        self.region.setZValue(10)
+        self.p2.addItem(self.region)
+        self.region.setRegion(
+            [self.controller.data_time_array[62], self.controller.data_time_array[187]]
+        )
+
+        # cross hair
+        self.vLine = pg.InfiniteLine(angle=90, movable=False)
+        self.hLine = pg.InfiniteLine(angle=0, movable=False)
+        self.p1.addItem(self.vLine, ignoreBounds=True)
+        self.p1.addItem(self.hLine, ignoreBounds=True)
+
+        # hover info label
+        self.hover_info = pg.TextItem(anchor=(0.5, 0.5))
+        self.hover_info.setParentItem(self.p1.vb)
+        self.hover_info.setPos(35, 25)
 
         # set graph range
-        self.setXRange(0, 1, padding=0.02)  # type: ignore
-        self.setYRange(-5, 5, padding=0.02)  # type: ignore
-        self.overlay.setYRange(-5, 5, padding=0.02)  # type: ignore
+        self.p1.setXRange(0, (250) * self.controller.seconds_per_sample, padding=0.02)
+        self.p1.setYRange(-5, 5, padding=0.1)
+        self.p1_overlay.setYRange(-5, 5, padding=0)  # type: ignore
+        self.p2.setYRange(-5, 5, padding=0.5)
 
         # set plot color
-        self.pen_ch1 = pg.mkPen(color="b", width=3)
-        self.pen_ch2 = pg.mkPen(color="r", width=3)
+        self.pen_ch1 = pg.mkPen(color="r", width=3)
+        self.pen_ch2 = pg.mkPen(color="g", width=3)
+        self.pen_region = pg.mkPen(color="w", width=3)
+
+        # plot data (for hover info)
+        self.data_ch1 = np.zeros(250)
+        self.data_ch2 = np.zeros(250)
 
         # plot init
-        self.data_line_ch1 = self.plot([0, 1], [0, 0], pen=self.pen_ch1)
-        self.overlay.addItem(pg.PlotCurveItem([0, 1], [0, 0], pen=self.pen_ch2))
+        self.p1_ch1 = self.p1.plot(
+            self.controller.data_time_array, self.data_ch1, pen=self.pen_ch1
+        )
+        self.p1_overlay.addItem(
+            pg.PlotCurveItem(
+                self.controller.data_time_array, self.data_ch2, pen=self.pen_ch2
+            )
+        )
+        self.p2_ch1 = self.p2.plot(
+            self.controller.data_time_array, self.data_ch1, pen=self.pen_region
+        )
+        self.p2_ch2 = self.p2.plot(
+            self.controller.data_time_array, self.data_ch2, pen=self.pen_region
+        )
+        self.region.setClipItem(self.p2_ch1)
+        self.region.setClipItem(self.p2_ch2)
 
         # update views for overlay
-        self.update_views()
-        self.plotItem.vb.sigResized.connect(self.update_views)  # type: ignore
+        self.update_overlay_views()
+        self.p1.vb.sigResized.connect(self.update_overlay_views)
 
-    def update_ch(self, x, ys):
-        self.data_line_ch1.setData(x, ys[0])
-        self.overlay.clear()
-        self.overlay.addItem(pg.PlotCurveItem(x, ys[1], pen=self.pen_ch2))
+        # update x range with region
+        self.region.sigRegionChanged.connect(self.update_xrange)
 
-    def update_views(self):
-        self.overlay.setGeometry(self.plotItem.vb.sceneBoundingRect())  # type: ignore
-        self.overlay.linkedViewChanged(self.plotItem.vb, self.overlay.XAxis)  # type: ignore
+        # update region with p1
+        self.p1.sigRangeChanged.connect(self.update_region)
+
+        # update crosshair and hover info
+        self.p1.scene().sigMouseMoved.connect(self.update_hover_info)
+
+    def update_ch(self, x: np.ndarray, ys: list[np.ndarray]):
+        # plot upper window
+        self.p1_ch1.setData(x, ys[0])
+        self.p1_overlay.clear()
+        self.p1_overlay.addItem(pg.PlotCurveItem(x, ys[1], pen=self.pen_ch2))
+        # update channel data and plot bottom window
+        self.data_ch1 = ys[0]
+        self.data_ch2 = ys[1]
+        self.p2_ch1.setData(x, self.data_ch1)
+        self.p2_ch2.setData(x, self.data_ch2)
+
+    def update_overlay_views(self):
+        self.p1_overlay.setGeometry(self.p1.vb.sceneBoundingRect())
+        self.p1_overlay.linkedViewChanged(self.p1.vb, self.p1_overlay.XAxis)
+
+    def update_xrange(self):
+        self.region.setZValue(10)
+        minX, maxX = self.region.getRegion()
+        self.p1.setXRange(minX, maxX, padding=0)
+
+    def update_region(self, _, viewRange):
+        rgn = viewRange[0]
+        self.region.setRegion(rgn)
+
+    def update_hover_info(self, evt):
+        pos = evt
+        if self.p1.sceneBoundingRect().contains(pos):
+            mousePoint = self.p1.vb.mapSceneToView(pos)
+            index = int(mousePoint.x() / self.controller.seconds_per_sample)
+            if 0 < index < 250:
+                match self.controller.channel_enable:
+                    case [True, True]:
+                        self.hover_info.setHtml(
+                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.4f <br> <span style='color: red;font-size:13pt;'>ch1=%0.2f</span> <br> <span style='color: green;font-size=13pt;'>ch2=%0.2f</span></div>"  # noqa: E501
+                            % (
+                                mousePoint.x(),
+                                self.data_ch1[index],
+                                self.data_ch2[index],
+                            )
+                        )
+                    case [True, False]:
+                        self.hover_info.setHtml(
+                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.4f <br> <span style='color: red;font-size:13pt;'>ch1=%0.2f</span></div>"  # noqa: E501
+                            % (mousePoint.x(), self.data_ch1[index])
+                        )
+                    case [False, True]:
+                        self.hover_info.setHtml(
+                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.4f <br> <span style='color: green;font-size=13pt;'>ch2=%0.2f</span></div>"  # noqa: E501
+                            % (mousePoint.x(), self.data_ch2[index])
+                        )
+                    case [False, False]:
+                        pass
+            self.vLine.setPos(mousePoint.x())
+            self.hLine.setPos(mousePoint.y())
 
 
 class ChannelBox(QGroupBox):
@@ -73,9 +169,11 @@ class ChannelBox(QGroupBox):
         self.setChecked(True)
 
         layout = QGridLayout()
+        self.setLayout(layout)
+
+        # slider
         self.slider_hbox = QHBoxLayout()
         self.slider_vbox = QVBoxLayout()
-        self.setLayout(layout)
 
         self.scale_slider = QSlider(orientation=Qt.Orientation.Horizontal)
         self.scale_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
@@ -90,14 +188,60 @@ class ChannelBox(QGroupBox):
         self.slider_vbox.addStretch()
         self.slider_vbox.setSpacing(0)
 
+        # vmax
+        self.vmax = QHBoxLayout()
+        self.vmax_label = QLabel("Vmax: ")
+        self.vmax_value = QLabel("N/A")
+        self.vmax.addWidget(self.vmax_label)
+        self.vmax.addWidget(self.vmax_value)
+        self.vmax.setSpacing(0)
+        self.vmax.setAlignment(Qt.AlignLeft)  # type: ignore
+        self.vmax.addStretch()
+
+        # vmin
+        self.vmin = QHBoxLayout()
+        self.vmin_label = QLabel("Vmin: ")
+        self.vmin_value = QLabel("N/A")
+        self.vmin.addWidget(self.vmin_label)
+        self.vmin.addWidget(self.vmin_value)
+        self.vmin.setSpacing(0)
+        self.vmin.setAlignment(Qt.AlignLeft)  # type: ignore
+        self.vmin.addStretch()
+
+        # Vpp
+        self.vpp = QHBoxLayout()
+        self.vpp_label = QLabel("Vpp: ")
+        self.vpp_value = QLabel("N/A")
+        self.vpp.addWidget(self.vpp_label)
+        self.vpp.addWidget(self.vpp_value)
+        self.vpp.setSpacing(0)
+        self.vpp.setAlignment(Qt.AlignLeft)  # type: ignore
+        self.vpp.addStretch()
+
+        # frequency
+        self.freq = QHBoxLayout()
+        self.freq_label = QLabel("Freq: ")
+        self.freq_value = QLabel("N/A")
+        self.freq.addWidget(self.freq_label)
+        self.freq.addWidget(self.freq_value)
+        self.freq.setSpacing(0)
+        self.freq.setAlignment(Qt.AlignLeft)  # type: ignore
+        self.freq.addStretch()
+
         layout.addWidget(QLabel("Scale"), 0, 0)
         layout.addLayout(self.slider_vbox, 0, 1)
+        layout.addLayout(self.vmax, 1, 0)
+        layout.addLayout(self.vmin, 1, 1)
+        layout.addLayout(self.vpp, 2, 0)
+        layout.addLayout(self.freq, 2, 1)
 
         match title:
             case "CH1":
                 self.scale_slider.valueChanged.connect(self.controller.set_ch1_yrange)
+                self.toggled.connect(self.controller.set_ch1_state)
             case "CH2":
                 self.scale_slider.valueChanged.connect(self.controller.set_ch2_yrange)
+                self.toggled.connect(self.controller.set_ch2_state)
 
 
 class TimebaseBox(QGroupBox):
@@ -289,7 +433,7 @@ class MainWindow(QMainWindow):
     def setupUi(self):
         self.setWindowTitle("Lovelace")
 
-        self.screen = OscilloscopeScreen()
+        self.screen = OscilloscopeScreen(self.controller)
         self.control_panel = ControlPanel(self.controller)
 
         self.content_layout = QHBoxLayout()
