@@ -294,6 +294,11 @@ class TriggerBox(QGroupBox):
         layout = QGridLayout()
         self.setLayout(layout)
 
+        # trigger channel
+        self.combobox_trigger_channel = QComboBox()
+        self.combobox_trigger_channel.addItems(["CH1", "CH2"])
+        self.combobox_trigger_channel.setCurrentIndex(0)
+
         # slope
         self.combobox_slope = QComboBox()
         self.combobox_slope.addItems(["rising", "falling"])
@@ -304,10 +309,12 @@ class TriggerBox(QGroupBox):
         self.combobox_trigger_position.addItems(["0%", "25%", "50%", "75%", "100%"])
         self.combobox_trigger_position.setCurrentIndex(0)
 
-        layout.addWidget(QLabel("Trigger slope"), 0, 0)
-        layout.addWidget(self.combobox_slope, 0, 1)
-        layout.addWidget(QLabel("Trigger position"), 1, 0)
-        layout.addWidget(self.combobox_trigger_position, 1, 1)
+        layout.addWidget(QLabel("Trigger channel"), 0, 0)
+        layout.addWidget(self.combobox_trigger_channel, 0, 1)
+        layout.addWidget(QLabel("Trigger slope"), 1, 0)
+        layout.addWidget(self.combobox_slope, 1, 1)
+        layout.addWidget(QLabel("Trigger position"), 2, 0)
+        layout.addWidget(self.combobox_trigger_position, 2, 1)
 
         self.toggled.connect(self.controller.set_trigger_state)
         self.combobox_slope.currentTextChanged.connect(
@@ -315,6 +322,9 @@ class TriggerBox(QGroupBox):
         )
         self.combobox_trigger_position.currentTextChanged.connect(
             self.controller.set_trigger_position
+        )
+        self.combobox_trigger_channel.currentTextChanged.connect(
+            self.controller.set_trigger_channel
         )
 
 

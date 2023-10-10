@@ -99,6 +99,11 @@ class Controller:
         if self.is_device_connected:
             self.device.write_trigger_state()
 
+    def set_trigger_channel(self, channel: str) -> None:
+        self.device.trigger_channel = channel
+        if self.is_device_connected:
+            self.device.write_trigger_channel()
+
     def set_ch1_state(self, on: bool) -> None:
         # hide or show plot
         self.main_window.screen.p1_ch1.setVisible(on)
