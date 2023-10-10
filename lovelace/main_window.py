@@ -137,7 +137,7 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
                 match self.controller.channel_enable:
                     case [True, True]:
                         self.hover_info.setHtml(
-                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.4f <br> <span style='color: red;font-size:13pt;'>ch1=%0.2f</span> <br> <span style='color: green;font-size=13pt;'>ch2=%0.2f</span></div>"  # noqa: E501
+                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.2g <br> <span style='color: red;font-size:13pt;'>ch1=%0.2f</span> <br> <span style='color: green;font-size=13pt;'>ch2=%0.2f</span></div>"  # noqa: E501
                             % (
                                 mousePoint.x(),
                                 self.data_ch1[index],
@@ -146,12 +146,12 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
                         )
                     case [True, False]:
                         self.hover_info.setHtml(
-                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.4f <br> <span style='color: red;font-size:13pt;'>ch1=%0.2f</span></div>"  # noqa: E501
+                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.2g <br> <span style='color: red;font-size:13pt;'>ch1=%0.2f</span></div>"  # noqa: E501
                             % (mousePoint.x(), self.data_ch1[index])
                         )
                     case [False, True]:
                         self.hover_info.setHtml(
-                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.4f <br> <span style='color: green;font-size=13pt;'>ch2=%0.2f</span></div>"  # noqa: E501
+                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.2g <br> <span style='color: green;font-size=13pt;'>ch2=%0.2f</span></div>"  # noqa: E501
                             % (mousePoint.x(), self.data_ch2[index])
                         )
                     case [False, False]:
