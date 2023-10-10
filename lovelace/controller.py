@@ -192,16 +192,16 @@ class Controller:
             if self.channel_enable[ch]:
                 # voltage
                 panel.vmax_value.setText(
-                    f"{np.max(self.acquisition_worker.data[ch-1]):.2f} V"
+                    f"{np.max(self.acquisition_worker.data[ch]):.2f} V"
                 )
                 panel.vmin_value.setText(
-                    f"{np.min(self.acquisition_worker.data[ch-1]):.2f} V"
+                    f"{np.min(self.acquisition_worker.data[ch]):.2f} V"
                 )
                 panel.vpp_value.setText(
-                    f"{np.ptp(self.acquisition_worker.data[ch-1]):.2f} V"
+                    f"{np.ptp(self.acquisition_worker.data[ch]):.2f} V"
                 )
                 # frequency
-                fft = np.fft.fft(self.acquisition_worker.data[ch - 1])
+                fft = np.fft.fft(self.acquisition_worker.data[ch])
                 fftfreq = np.fft.fftfreq(250, self.seconds_per_sample)
                 panel.freq_value.setText(
                     f"{abs(fftfreq[np.argmax(np.abs(fft))]):.3g} Hz"
