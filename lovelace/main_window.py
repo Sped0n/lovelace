@@ -325,7 +325,7 @@ class AcquisitionBox(QGroupBox):
 
         self.is_running = False
 
-        layout = QHBoxLayout()
+        layout = QVBoxLayout()
         self.setLayout(layout)
 
         self.button_run = QPushButton("RUN")
@@ -420,15 +420,14 @@ class ControlPanel(QFrame):
         self.stats_panel = StatsBox()
         self.dev_panel = DeviceBox(self.controller)
 
-        self.layout = QVBoxLayout()  # type: ignore
-        self.layout.addWidget(self.ch1_panel)
-        self.layout.addWidget(self.ch2_panel)
-        self.layout.addWidget(self.time_panel)
-        self.layout.addWidget(self.trigger_panel)
-        self.layout.addWidget(self.acq_panel)
-        self.layout.addWidget(self.stats_panel)
-        self.layout.addStretch()
-        self.layout.addWidget(self.dev_panel)
+        self.layout = QGridLayout()  # type: ignore
+        self.layout.addWidget(self.ch1_panel, 0, 0, 1, 1)
+        self.layout.addWidget(self.ch2_panel, 0, 1, 1, 1)
+        self.layout.addWidget(self.time_panel, 1, 0, 1, 1)
+        self.layout.addWidget(self.acq_panel, 1, 1, 1, 1)
+        self.layout.addWidget(self.trigger_panel, 2, 0, 1, 2)
+        self.layout.addWidget(self.stats_panel, 3, 0, 1, 2)
+        self.layout.addWidget(self.dev_panel, 4, 0, 1, 2)
 
         self.setLayout(self.layout)
 
