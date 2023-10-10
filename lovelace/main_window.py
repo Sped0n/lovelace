@@ -196,7 +196,6 @@ class ChannelBox(QGroupBox):
         self.vmax_value = QLabel("N/A")
         self.vmax.addWidget(self.vmax_label)
         self.vmax.addWidget(self.vmax_value)
-        self.vmax.setSpacing(0)
         self.vmax.setAlignment(Qt.AlignLeft)  # type: ignore
         self.vmax.addStretch()
 
@@ -206,7 +205,6 @@ class ChannelBox(QGroupBox):
         self.vmin_value = QLabel("N/A")
         self.vmin.addWidget(self.vmin_label)
         self.vmin.addWidget(self.vmin_value)
-        self.vmin.setSpacing(0)
         self.vmin.setAlignment(Qt.AlignLeft)  # type: ignore
         self.vmin.addStretch()
 
@@ -216,7 +214,6 @@ class ChannelBox(QGroupBox):
         self.vpp_value = QLabel("N/A")
         self.vpp.addWidget(self.vpp_label)
         self.vpp.addWidget(self.vpp_value)
-        self.vpp.setSpacing(0)
         self.vpp.setAlignment(Qt.AlignLeft)  # type: ignore
         self.vpp.addStretch()
 
@@ -226,7 +223,6 @@ class ChannelBox(QGroupBox):
         self.freq_value = QLabel("N/A")
         self.freq.addWidget(self.freq_label)
         self.freq.addWidget(self.freq_value)
-        self.freq.setSpacing(0)
         self.freq.setAlignment(Qt.AlignLeft)  # type: ignore
         self.freq.addStretch()
 
