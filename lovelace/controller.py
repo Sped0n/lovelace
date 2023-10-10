@@ -94,6 +94,11 @@ class Controller:
         if self.is_device_connected:
             self.device.write_trigger_slope()
 
+    def set_trigger_position(self, position: str) -> None:
+        self.device.trigger_position = position
+        if self.is_device_connected:
+            self.device.write_trigger_state()
+
     def set_ch1_state(self, on: bool) -> None:
         # hide or show plot
         self.main_window.screen.p1_ch1.setVisible(on)

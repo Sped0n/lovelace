@@ -291,19 +291,30 @@ class TriggerBox(QGroupBox):
         self.setCheckable(True)
         self.setChecked(False)
 
-        layout = QHBoxLayout()
+        layout = QGridLayout()
         self.setLayout(layout)
 
+        # slope
         self.combobox_slope = QComboBox()
         self.combobox_slope.addItems(["rising", "falling"])
         self.combobox_slope.setCurrentIndex(0)
 
-        layout.addWidget(QLabel("Trigger slope"))
-        layout.addWidget(self.combobox_slope)
+        # trigger position
+        self.combobox_trigger_position = QComboBox()
+        self.combobox_trigger_position.addItems(["0%", "25%", "50%", "75%", "100%"])
+        self.combobox_trigger_position.setCurrentIndex(0)
+
+        layout.addWidget(QLabel("Trigger slope"), 0, 0)
+        layout.addWidget(self.combobox_slope, 0, 1)
+        layout.addWidget(QLabel("Trigger position"), 1, 0)
+        layout.addWidget(self.combobox_trigger_position, 1, 1)
 
         self.toggled.connect(self.controller.set_trigger_state)
         self.combobox_slope.currentTextChanged.connect(
             self.controller.set_trigger_slope
+        )
+        self.combobox_trigger_position.currentTextChanged.connect(
+            self.controller.set_trigger_position
         )
 
 

@@ -19,8 +19,8 @@ class Device:
         # default config
         self.timebase: str = "1 us"
         self.trigger_enable: bool = False
-        self.trigger_position: str = "0"
-        self.trigger_channel: str = "1"
+        self.trigger_position: str = "0%"
+        self.trigger_channel: str = "CH1"
         self.trigger_slope: str = "rising"
         self.trigger_threshold: str = "128"
 
@@ -134,23 +134,23 @@ class Device:
                 match cmd_content:
                     case "disable":
                         packet_content = gen_packet_content(4, [5])
-                    case "0":
+                    case "0%":
                         packet_content = gen_packet_content(4, [0])
-                    case "25":
+                    case "25%":
                         packet_content = gen_packet_content(4, [1])
-                    case "50":
+                    case "50%":
                         packet_content = gen_packet_content(4, [2])
-                    case "75":
+                    case "75%":
                         packet_content = gen_packet_content(4, [3])
-                    case "100":
+                    case "100%":
                         packet_content = gen_packet_content(4, [4])
                     case _:
                         raise CmdContentError(f"invalid trigger: {cmd_content}")
             case "trigger_channel":
                 match cmd_content:
-                    case "1":
+                    case "CH1":
                         packet_content = gen_packet_content(5, [0])
-                    case "2":
+                    case "CH2":
                         packet_content = gen_packet_content(5, [1])
                     case _:
                         raise CmdContentError(f"invalid trigger channel: {cmd_content}")
