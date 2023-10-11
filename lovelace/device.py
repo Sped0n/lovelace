@@ -37,10 +37,6 @@ class Device:
     def is_connected(self) -> bool:
         return self.serial_port.is_open
 
-    def set_timeout(self, sps: float) -> None:
-        # 1.5 times of the seconds per acquisition
-        self.serial_port.timeout = 2 * self.BUFFERSIZE * (sps + 11 / self.BAUDRATE)
-
     def write_all_settings(self) -> None:
         self.write_timebase()
         self.write_trigger_state()
@@ -77,18 +73,46 @@ class Device:
             self.serial_port.reset_input_buffer()
             self.serial_port.reset_output_buffer()
 
-    def acquire_single(self) -> list[np.ndarray]:
-        self.serial_port.write(self.__gen_cmd("request"))
-        # read data
-        print("waiting for data")
-        tmp: bytes = self.serial_port.read(self.BUFFERSIZE)
-        # parse data
-        data: np.ndarray = np.frombuffer(tmp, dtype=np.uint8).astype(float)
-        if len(data) == self.BUFFERSIZE and int(data[0]) == 85 and int(data[1]) == 1:
-            data = data[4:-1] * 10 / 256 - 5
-        else:
-            raise PacketCorruptError("packet corrupt")
-        res: list[np.ndarray] = [data[0:1250], data[1250:]]
+    def acquire_single(self, eager: bool = True) -> list[np.ndarray]:
+        buf = bytes()
+        request_sended: bool = False
+        last_buf_len: int = -1
+        corrupted: bool = False
+        while True:
+            if eager:  # resend request if data corrupted
+                if not request_sended and not corrupted:
+                    self.serial_port.write(self.__gen_cmd("request"))
+                else:
+                    self.serial_port.write(self.__gen_cmd("resend"))
+            else:  # ignore corrupted data, keep waiting for new data
+                if not request_sended:
+                    self.serial_port.write(self.__gen_cmd("request"))
+            # read data
+            time.sleep(0.01)
+            tmp: bytes = self.serial_port.read(self.serial_port.in_waiting)
+            buf += tmp
+            if not request_sended and len(buf) > 0:
+                request_sended = True
+            if len(buf) == last_buf_len:
+                self.serial_port.close()
+                self.serial_port.open()
+                self.write_all_settings()
+                raise PacketCorruptError("packet corrupt")
+            # parse data
+            if len(buf) >= self.BUFFERSIZE:
+                data: np.ndarray = np.frombuffer(buf, dtype=np.uint8).astype(float)[
+                    0 : self.BUFFERSIZE
+                ]
+                # reset buffer
+                buf = bytes()
+                if int(data[0]) == 85 and int(data[1]) == 1:
+                    data = data[4:-1] * 10 / 256 - 5
+                    res: list[np.ndarray] = [data[0:1250], data[1250:]]
+                    break
+                else:
+                    corrupted = True
+                    self.clean_buffers("input")
+            last_buf_len = len(buf)
         return res
 
     def __gen_cmd(self, cmd_type: str, cmd_content: str = "") -> bytearray:
@@ -96,6 +120,8 @@ class Device:
         match cmd_type:
             case "request":
                 packet_content = gen_packet_content(7, [1])
+            case "resend":
+                packet_content = gen_packet_content(8, [1])
             case "timebase":
                 match cmd_content:
                     case "5 us":

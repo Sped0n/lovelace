@@ -80,7 +80,6 @@ class Controller:
             / int(self.depth / 10)
             * {"ms": 1e-3, "us": 1e-6}[timebase.split()[1]]
         )
-        self.device.set_timeout(self.seconds_per_sample)
         self.data_time_array = np.arange(0, self.depth) * self.seconds_per_sample
         try:
             if self.util_graph_content == "Region":
@@ -280,7 +279,6 @@ class Controller:
                 self.channel_stats_update()
         finally:
             if self.continuous_acquisition:
-                print("callback")
                 self.worker_block = False
                 self.worker_wait_condition.notify_one()
             else:
@@ -322,7 +320,7 @@ class AcquisitionWorker(QObject):
         if not self.is_running:
             self.is_running = True
         while True:
-            print("waiting mutex")
+            time.sleep(0.01)
             while self.block_getter():
                 self.mutex.lock()
                 self.wait_condition.wait(self.mutex)
@@ -334,14 +332,12 @@ class AcquisitionWorker(QObject):
                 self.data = self.device.acquire_single()
                 self.data_valid = True
             except PacketCorruptError:
-                print("Packet corrupt")
                 self.data = [
                     np.zeros(self.depth_getter()),
                     np.zeros(self.depth_getter()),
                 ]
                 self.data_valid = False
             finally:
-                print("--------------")
                 self.data_ready.emit()
         print("finished")
 
