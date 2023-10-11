@@ -8,8 +8,8 @@ from lovelace.utils import bytepack, gen_packet_content
 
 
 class Device:
-    BAUDRATE = 1000000
-    BUFFERSIZE = 516
+    BAUDRATE = 2000000
+    BUFFERSIZE = 2505
 
     def __init__(self) -> None:
         # pyserial instance
@@ -17,7 +17,7 @@ class Device:
         self.serial_port.timeout = 0.5
         self.serial_port.baudrate = self.BAUDRATE
         # default config
-        self.timebase: str = "1 us"
+        self.timebase: str = "5 us"
         self.trigger_enable: bool = False
         self.trigger_position: str = "0%"
         self.trigger_channel: str = "CH1"
@@ -39,7 +39,7 @@ class Device:
 
     def set_timeout(self, sps: float) -> None:
         # 1.5 times of the seconds per acquisition
-        self.serial_port.timeout = 1.5 * self.BUFFERSIZE * (sps + 11 / self.BAUDRATE)
+        self.serial_port.timeout = 2 * self.BUFFERSIZE * (sps + 11 / self.BAUDRATE)
 
     def write_all_settings(self) -> None:
         self.write_timebase()
@@ -88,7 +88,7 @@ class Device:
             data = data[4:-1] * 10 / 256 - 5
         else:
             raise PacketCorruptError("packet corrupt")
-        res: list[np.ndarray] = [data[:250], data[256:-5]]
+        res: list[np.ndarray] = [data[0:1250], data[1250:]]
         return res
 
     def __gen_cmd(self, cmd_type: str, cmd_content: str = "") -> bytearray:
@@ -98,35 +98,35 @@ class Device:
                 packet_content = gen_packet_content(7, [1])
             case "timebase":
                 match cmd_content:
-                    case "1 us":
-                        packet_content = gen_packet_content(6, [0])
-                    case "2 us":
-                        packet_content = gen_packet_content(6, [1])
                     case "5 us":
-                        packet_content = gen_packet_content(6, [2])
+                        packet_content = gen_packet_content(6, [0])
                     case "10 us":
-                        packet_content = gen_packet_content(6, [3])
-                    case "20 us":
-                        packet_content = gen_packet_content(6, [4])
+                        packet_content = gen_packet_content(6, [1])
+                    case "25 us":
+                        packet_content = gen_packet_content(6, [2])
                     case "50 us":
-                        packet_content = gen_packet_content(6, [5])
+                        packet_content = gen_packet_content(6, [3])
                     case "100 us":
-                        packet_content = gen_packet_content(6, [6])
-                    case "200 us":
-                        packet_content = gen_packet_content(6, [7])
+                        packet_content = gen_packet_content(6, [4])
+                    case "250 us":
+                        packet_content = gen_packet_content(6, [5])
                     case "500 us":
-                        packet_content = gen_packet_content(6, [8])
+                        packet_content = gen_packet_content(6, [6])
                     case "1 ms":
-                        packet_content = gen_packet_content(6, [9])
-                    case "2 ms":
-                        packet_content = gen_packet_content(6, [10])
+                        packet_content = gen_packet_content(6, [7])
+                    case "2.5 ms":
+                        packet_content = gen_packet_content(6, [8])
                     case "5 ms":
-                        packet_content = gen_packet_content(6, [11])
+                        packet_content = gen_packet_content(6, [9])
                     case "10 ms":
-                        packet_content = gen_packet_content(6, [12])
-                    case "20 ms":
-                        packet_content = gen_packet_content(6, [13])
+                        packet_content = gen_packet_content(6, [10])
+                    case "25 ms":
+                        packet_content = gen_packet_content(6, [11])
                     case "50 ms":
+                        packet_content = gen_packet_content(6, [12])
+                    case "100 ms":
+                        packet_content = gen_packet_content(6, [13])
+                    case "250 ms":
                         packet_content = gen_packet_content(6, [14])
                     case _:
                         raise CmdContentError(f"invalid timebase: {cmd_content}")

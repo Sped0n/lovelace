@@ -9,14 +9,19 @@ from lovelace.device import Device
 from lovelace.main_window import MainWindow
 from lovelace.ctyper import PacketCorruptError
 
+import pyqtgraph as pg
+
 
 class Controller:
     def __init__(self) -> None:
         # device
         self.device = Device()
 
+        # acquisition depth
+        self.depth: int = 1250
+
         # default timebase
-        self.set_timebase("1 us")
+        self.set_timebase("5 us")
 
         # default channel enable
         self.channel_enable: list[bool] = [True, True]
@@ -41,6 +46,7 @@ class Controller:
             wait_condition=self.worker_wait_condition,
             device=self.device,
             block_getter=self.worker_block_getter,
+            depth_getter=self.worker_depth_getter,
         )
         self.worker_block = True
         self.acquisition_thread = QThread()
@@ -71,20 +77,15 @@ class Controller:
         # adjust timebase in the screen
         self.seconds_per_sample: float = (
             float(timebase.split()[0])
-            / 25
+            / int(self.depth / 10)
             * {"ms": 1e-3, "us": 1e-6}[timebase.split()[1]]
         )
         self.device.set_timeout(self.seconds_per_sample)
-        self.data_time_array = np.arange(0, 250) * self.seconds_per_sample
+        self.data_time_array = np.arange(0, self.depth) * self.seconds_per_sample
         try:
             if self.util_graph_content == "Region":
-                self.main_window.screen.p2.setXRange(
-                    0, (250) * self.seconds_per_sample, padding=0.02
-                )
-            self.main_window.screen.region.setRegion(
-                [self.data_time_array[62], self.data_time_array[187]]
-            )
-            print("set timebase")
+                self.set_p2_xrange()
+            self.set_p2_region(self.main_window.screen.region)
         except AttributeError:
             pass
 
@@ -134,6 +135,19 @@ class Controller:
     def set_util_graph_state(self, on: bool) -> None:
         self.main_window.screen.p2.setVisible(on)
 
+    def set_p2_xrange(self) -> None:
+        self.main_window.screen.p2.setXRange(
+            0, (self.depth) * self.seconds_per_sample, padding=0.02
+        )
+
+    def set_p2_region(self, region: pg.LinearRegionItem) -> None:
+        region.setRegion(
+            [
+                self.data_time_array[int(len(self.data_time_array) * 0.25)],
+                self.data_time_array[int(len(self.data_time_array) * 0.75)],
+            ]
+        )
+
     def set_ch1_yrange(self, value: int) -> None:
         self.main_window.screen.p1.setYRange(-5 / value, 5 / value, padding=0.1)
 
@@ -146,15 +160,10 @@ class Controller:
                 self.util_graph_content = content
                 self.main_window.screen.p2_ch1.setFftMode(False)
                 self.main_window.screen.p2_ch2.setFftMode(False)
-
                 self.main_window.screen.region.setVisible(True)
                 self.main_window.screen.region.setMovable(True)
-                self.main_window.screen.p2.setXRange(
-                    0, (250) * self.seconds_per_sample, padding=0.02
-                )
-                self.main_window.screen.region.setRegion(
-                    [self.data_time_array[62], self.data_time_array[187]]
-                )
+                self.set_p2_xrange()
+                self.set_p2_region(self.main_window.screen.region)
             case "FFT":
                 self.util_graph_content = content
                 self.main_window.screen.region.setVisible(False)
@@ -193,8 +202,11 @@ class Controller:
             "No device is connected. Connect a device first.",
         )
 
-    def worker_block_getter(self):
+    def worker_block_getter(self) -> bool:
         return self.worker_block
+
+    def worker_depth_getter(self) -> int:
+        return self.depth
 
     def oscilloscope_single_run(self):
         if self.is_device_connected:
@@ -245,7 +257,7 @@ class Controller:
                 )
                 # frequency
                 fft = np.fft.fft(self.acquisition_worker.data[ch])
-                fftfreq = np.fft.fftfreq(250, self.seconds_per_sample)
+                fftfreq = np.fft.fftfreq(1250, self.seconds_per_sample)
                 panel.freq_value.setText(
                     f"{abs(fftfreq[np.argmax(np.abs(fft))]):.3g} Hz"
                 )
@@ -292,19 +304,18 @@ class Controller:
 class AcquisitionWorker(QObject):
     data_ready = Signal()
 
-    def __init__(self, wait_condition, device, block_getter, parent=None):
+    def __init__(self, wait_condition, device, block_getter, depth_getter, parent=None):
         super().__init__(parent=parent)
         # for synchronization
         self.wait_condition = wait_condition
         self.block_getter = block_getter
+        self.depth_getter = depth_getter
         self.mutex = QMutex()
         # for safely quit
         self.is_running: bool = False
         # device
         self.device = device
         # data
-        self.empty_data: list[np.ndarray] = [np.zeros(250), np.zeros(250)]
-        self.data: list[np.ndarray] = self.empty_data
         self.data_valid: bool = False
 
     def run(self):
@@ -324,7 +335,10 @@ class AcquisitionWorker(QObject):
                 self.data_valid = True
             except PacketCorruptError:
                 print("Packet corrupt")
-                self.data = self.empty_data
+                self.data = [
+                    np.zeros(self.depth_getter()),
+                    np.zeros(self.depth_getter()),
+                ]
                 self.data_valid = False
             finally:
                 print("--------------")

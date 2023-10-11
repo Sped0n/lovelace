@@ -45,9 +45,7 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
         self.region = pg.LinearRegionItem()
         self.region.setZValue(10)
         self.p2.addItem(self.region)
-        self.region.setRegion(
-            [self.controller.data_time_array[62], self.controller.data_time_array[187]]
-        )
+        self.controller.set_p2_region(self.region)
 
         # cross hair
         self.vLine = pg.InfiniteLine(angle=90, movable=False)
@@ -61,7 +59,11 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
         self.hover_info.setPos(35, 25)
 
         # set graph range
-        self.p1.setXRange(0, (250) * self.controller.seconds_per_sample, padding=0.02)
+        self.p1.setXRange(
+            0,
+            (self.controller.depth) * self.controller.seconds_per_sample,
+            padding=0.02,
+        )
         self.p1.setYRange(-5, 5, padding=0.1)
         self.p1_overlay.setYRange(-5, 5, padding=0.1)
         self.p2.setYRange(-5, 5, padding=0.5)
@@ -72,8 +74,8 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
         self.pen_region = pg.mkPen(color="w", width=3)
 
         # plot data (for hover info)
-        self.data_ch1 = np.zeros(250)
-        self.data_ch2 = np.zeros(250)
+        self.data_ch1 = np.zeros(self.controller.depth)
+        self.data_ch2 = np.zeros(self.controller.depth)
 
         # plot init
         self.p1_ch1 = self.p1.plot(
@@ -98,7 +100,7 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
         self.p1.vb.sigResized.connect(self.update_overlay_views)
 
         # update x range with region
-        self.region.sigRegionChanged.connect(self.update_xrange)
+        self.region.sigRegionChanged.connect(self.update_p1_xrange)
 
         # update region with p1
         self.p1.sigRangeChanged.connect(self.update_region)
@@ -121,7 +123,7 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
         self.p1_overlay.setGeometry(self.p1.vb.sceneBoundingRect())
         self.p1_overlay.linkedViewChanged(self.p1.vb, self.p1_overlay.XAxis)
 
-    def update_xrange(self):
+    def update_p1_xrange(self):
         self.region.setZValue(10)
         minX, maxX = self.region.getRegion()
         self.p1.setXRange(minX, maxX, padding=0)
@@ -135,7 +137,7 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
         if self.p1.sceneBoundingRect().contains(pos):
             mousePoint = self.p1.vb.mapSceneToView(pos)
             index = int(mousePoint.x() / self.controller.seconds_per_sample)
-            if 0 < index < 250:
+            if 0 < index < self.controller.depth:
                 match self.controller.channel_enable:
                     case [True, True]:
                         self.hover_info.setHtml(
@@ -251,21 +253,21 @@ class TimebaseBox(QGroupBox):
         self.setLayout(layout)
 
         self.timebase_options = [
-            "1 us",
-            "2 us",
             "5 us",
             "10 us",
-            "20 us",
+            "25 us",
             "50 us",
             "100 us",
-            "200 us",
+            "250 us",
             "500 us",
             "1 ms",
-            "2 ms",
+            "2.5 ms",
             "5 ms",
             "10 ms",
-            "20 ms",
+            "25 ms",
             "50 ms",
+            "100 ms",
+            "250 ms",
         ]
         self.combobox_timebase = QComboBox()
         self.combobox_timebase.addItems(self.timebase_options)
@@ -309,7 +311,7 @@ class TriggerBox(QGroupBox):
 
         # trigger threshold
         self.lineedit_trigger_threshold = QLineEdit()
-        rx = QRegularExpression("^(([1-9]{1}\d*)|(0{1}))(\.\d{0,2})?$")  # type: ignore
+        rx = QRegularExpression("^([-]{0,1})(([1-9]{1}\d*)|(0{1}))(\.\d{0,2})?$")  # type: ignore
         validator = QRegularExpressionValidator(rx)
         self.lineedit_trigger_threshold.setValidator(validator)
         self.lineedit_trigger_threshold.setText("0.0")
