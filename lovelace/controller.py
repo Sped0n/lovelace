@@ -257,7 +257,7 @@ class Controller:
                 )
                 # frequency
                 fft = np.fft.fft(self.acquisition_worker.data[ch])
-                fftfreq = np.fft.fftfreq(1250, self.seconds_per_sample)
+                fftfreq = np.fft.fftfreq(self.depth, self.seconds_per_sample)
                 panel.freq_value.setText(
                     f"{abs(fftfreq[np.argmax(np.abs(fft))]):.3g} Hz"
                 )
