@@ -305,41 +305,55 @@ class TriggerBox(QGroupBox):
         self.combobox_slope.setCurrentIndex(0)
 
         # trigger position
-        self.combobox_trigger_position = QComboBox()
-        self.combobox_trigger_position.addItems(["0%", "25%", "50%", "75%", "100%"])
-        self.combobox_trigger_position.setCurrentIndex(0)
+        self.lineedit_trigger_position = QLineEdit()
+        rx_pos = QRegularExpression("^([1-9]\d{0,1}|0|100)$")  # type: ignore
+        validator_pos = QRegularExpressionValidator(rx_pos)
+        self.lineedit_trigger_position.setValidator(validator_pos)
+        self.lineedit_trigger_position.setText("0")
 
         # trigger threshold
         self.lineedit_trigger_threshold = QLineEdit()
-        rx = QRegularExpression("^([-]{0,1})(([1-9]{1}\d*)|(0{1}))(\.\d{0,2})?$")  # type: ignore
-        validator = QRegularExpressionValidator(rx)
-        self.lineedit_trigger_threshold.setValidator(validator)
+        rx_ths = QRegularExpression("^([-]{0,1})(([1-9]{1}\d*)|(0{1}))(\.\d{0,2})?$")  # type: ignore
+        validator_ths = QRegularExpressionValidator(rx_ths)
+        self.lineedit_trigger_threshold.setValidator(validator_ths)
         self.lineedit_trigger_threshold.setText("0.0")
 
-        layout.addWidget(QLabel("Trigger channel"), 0, 0)
-        layout.addWidget(self.combobox_trigger_channel, 0, 1)
-        layout.addWidget(QLabel("Trigger slope"), 1, 0)
-        layout.addWidget(self.combobox_slope, 1, 1)
-        layout.addWidget(QLabel("Trigger position"), 2, 0)
-        layout.addWidget(self.combobox_trigger_position, 2, 1)
-        layout.addWidget(QLabel("Trigger threshold"), 3, 0)
-        layout.addWidget(self.lineedit_trigger_threshold, 3, 1)
+        layout.addWidget(QLabel("Trigger channel"), 0, 0, 1, 2)
+        layout.addWidget(self.combobox_trigger_channel, 0, 2, 1, 2)
+        layout.addWidget(QLabel("Trigger slope"), 1, 0, 1, 2)
+        layout.addWidget(self.combobox_slope, 1, 2, 1, 2)
+        layout.addWidget(QLabel("Trigger position (%)"), 2, 0, 1, 1)
+        layout.addWidget(self.lineedit_trigger_position, 2, 1, 1, 1)
+        layout.addWidget(QLabel("Trigger threshold (V)"), 2, 2, 1, 1)
+        layout.addWidget(self.lineedit_trigger_threshold, 2, 3, 1, 1)
 
         self.toggled.connect(self.controller.set_trigger_state)
         self.combobox_slope.currentTextChanged.connect(
             self.controller.set_trigger_slope
         )
-        self.combobox_trigger_position.currentTextChanged.connect(
-            self.controller.set_trigger_position
-        )
         self.combobox_trigger_channel.currentTextChanged.connect(
             self.controller.set_trigger_channel
         )
+        self.lineedit_trigger_position.editingFinished.connect(
+            self.on_pos_lineedit_finished
+        )
         self.lineedit_trigger_threshold.editingFinished.connect(
-            self.on_lineedit_finished
+            self.on_ths_lineedit_finished
         )
 
-    def on_lineedit_finished(self):
+    def on_pos_lineedit_finished(self):
+        if int(self.lineedit_trigger_position.text()) > 100:
+            self.lineedit_trigger_position.setText("100")
+        elif int(self.lineedit_trigger_position.text()) < 0:
+            self.lineedit_trigger_position.setText("0")
+        tmp = str(
+            int(
+                int(self.lineedit_trigger_position.text()) / 100 * self.controller.depth
+            )
+        )
+        self.controller.set_trigger_position(tmp)
+
+    def on_ths_lineedit_finished(self):
         if float(self.lineedit_trigger_threshold.text()) > 5:
             self.lineedit_trigger_threshold.setText("5.0")
         elif float(self.lineedit_trigger_threshold.text()) < -5:
@@ -409,7 +423,7 @@ class UtilGraphBox(QGroupBox):
         self.button_fft.clicked.connect(self.on_fft_button)
 
     def on_region_button(self):
-        self.controller.set_util_graph_content("Region")
+        self.controller.set_util_graph_content(self.button_region.text())
         self.button_fft.setEnabled(True)
         if self.button_fft.isEnabled():
             self.button_region.setText("Reset")

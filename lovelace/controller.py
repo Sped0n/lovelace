@@ -155,7 +155,7 @@ class Controller:
 
     def set_util_graph_content(self, content: str) -> None:
         match content:
-            case "Region":
+            case "Reset":
                 self.util_graph_content = content
                 self.main_window.screen.p2_ch1.setFftMode(False)
                 self.main_window.screen.p2_ch2.setFftMode(False)
@@ -163,6 +163,13 @@ class Controller:
                 self.main_window.screen.region.setMovable(True)
                 self.set_p2_xrange()
                 self.set_p2_region(self.main_window.screen.region)
+            case "Region":
+                self.util_graph_content = content
+                self.main_window.screen.p2_ch1.setFftMode(False)
+                self.main_window.screen.p2_ch2.setFftMode(False)
+                self.main_window.screen.region.setVisible(True)
+                self.main_window.screen.region.setMovable(True)
+                self.set_p2_xrange()
             case "FFT":
                 self.util_graph_content = content
                 self.main_window.screen.region.setVisible(False)

@@ -8,7 +8,7 @@ from lovelace.utils import bytepack, gen_packet_content
 
 
 class Device:
-    BAUDRATE = 2000000
+    BAUDRATE = 1000000
     BUFFERSIZE = 2505
 
     def __init__(self) -> None:
@@ -19,7 +19,7 @@ class Device:
         # default config
         self.timebase: str = "5 us"
         self.trigger_enable: bool = False
-        self.trigger_position: str = "0%"
+        self.trigger_position: str = "0"
         self.trigger_channel: str = "CH1"
         self.trigger_slope: str = "rising"
         self.trigger_threshold: str = "128"
@@ -159,19 +159,15 @@ class Device:
             case "trigger":
                 match cmd_content:
                     case "disable":
-                        packet_content = gen_packet_content(4, [5])
-                    case "0%":
-                        packet_content = gen_packet_content(4, [0])
-                    case "25%":
-                        packet_content = gen_packet_content(4, [1])
-                    case "50%":
-                        packet_content = gen_packet_content(4, [2])
-                    case "75%":
-                        packet_content = gen_packet_content(4, [3])
-                    case "100%":
-                        packet_content = gen_packet_content(4, [4])
+                        packet_content = gen_packet_content(4, [255, 255])
                     case _:
-                        raise CmdContentError(f"invalid trigger: {cmd_content}")
+                        if 0 <= int(cmd_content) <= 65535:
+                            packet_content = gen_packet_content(
+                                4, [int(cmd_content) // 256, int(cmd_content) % 256]
+                            )
+                        else:
+                            raise CmdContentError(f"invalid trigger: {cmd_content}")
+                print(packet_content)
             case "trigger_channel":
                 match cmd_content:
                     case "CH1":
