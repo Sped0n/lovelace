@@ -1,4 +1,4 @@
-def bytepack(data: list[int]) -> bytearray:
+def bytepack(data: list[int]) -> bytes:
     tmp: list = data
     # checksum
     checksum: int = sum(data) % 256
@@ -6,7 +6,7 @@ def bytepack(data: list[int]) -> bytearray:
     # hex
     for e in tmp:
         e = e & 0xFF
-    return bytearray(tmp)
+    return bytes(bytearray(tmp))
 
 
 def gen_packet_content(type: int, data: list[int]) -> list[int]:

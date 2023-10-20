@@ -45,7 +45,7 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
         self.region = pg.LinearRegionItem()
         self.region.setZValue(10)
         self.p2.addItem(self.region)
-        self.controller.set_p2_region(self.region)
+        self.reanchor_p2_region()
 
         # cross hair
         self.vLine = pg.InfiniteLine(angle=90, movable=False)
@@ -61,7 +61,7 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
         # set graph range
         self.p1.setXRange(
             0,
-            (self.controller.depth) * self.controller.seconds_per_sample,
+            self.controller.depth * self.controller.seconds_per_sample,
             padding=0.02,
         )
         self.p1.setYRange(-5, 5, padding=0.1)
@@ -96,76 +96,110 @@ class OscilloscopeScreen(pg.GraphicsLayoutWidget):
         self.region.setClipItem(self.p2_ch2)
 
         # update views for overlay
-        self.update_overlay_views()
-        self.p1.vb.sigResized.connect(self.update_overlay_views)
+        self.__update_p1_overlay_views()
+        self.p1.vb.sigResized.connect(self.__update_p1_overlay_views)
 
         # update x range with region
-        self.region.sigRegionChanged.connect(self.update_p1_xrange)
+        self.region.sigRegionChanged.connect(self.__update_p1_xrange)
 
-        # update region with p1
-        self.p1.sigRangeChanged.connect(self.update_region)
+        # update region with p2
+        self.p1.sigRangeChanged.connect(self.update_p2_region)
 
         # update crosshair and hover info
-        self.p1.scene().sigMouseMoved.connect(self.update_hover_info)
+        self.p1.scene().sigMouseMoved.connect(self.__update_hover_info)
+
+    # public methods
 
     def update_ch(self, x: np.ndarray, ys: list[np.ndarray]):
-        # plot upper window
-        self.p1_ch1.setData(x, ys[0])
-        self.p1_overlay.clear()
-        self.p1_overlay.addItem(pg.PlotCurveItem(x, ys[1], pen=self.pen_ch2))
-        # update channel data and plot bottom window
-        self.data_ch1 = ys[0]
-        self.data_ch2 = ys[1]
-        self.p2_ch1.setData(x, self.data_ch1)
-        self.p2_ch2.setData(x, self.data_ch2)
+        # we try here because the length will be mismatch when
+        # acquisition depth is changed in the middle of a run
+        try:
+            # plot upper window
+            self.p1_ch1.setData(x, ys[0])
+            self.p1_overlay.clear()
+            self.p1_overlay.addItem(pg.PlotCurveItem(x, ys[1], pen=self.pen_ch2))
+            # update channel data
+            self.data_ch1 = ys[0]
+            self.data_ch2 = ys[1]
+            # plot bottom window
+            self.p2_ch1.setData(x, self.data_ch1)
+            self.p2_ch2.setData(x, self.data_ch2)
+        except Exception:
+            pass
 
-    def update_overlay_views(self):
+    def update_p2_region(self, _, viewRange):
+        rgn = viewRange[0]
+        self.region.setRegion(rgn)
+
+    def reanchor_p2_region(self) -> None:
+        self.region.setRegion(
+            [
+                self.controller.data_time_array[
+                    int(len(self.controller.data_time_array) * 0.25)
+                ],
+                self.controller.data_time_array[
+                    int(len(self.controller.data_time_array) * 0.75)
+                ],
+            ]
+        )
+
+    def update_p2_xrange(self) -> None:
+        self.p2.setXRange(
+            0,
+            self.controller.depth * self.controller.seconds_per_sample,
+            padding=0.02,
+        )
+
+    # private methods
+
+    def __update_p1_overlay_views(self) -> None:
         self.p1_overlay.setGeometry(self.p1.vb.sceneBoundingRect())
         self.p1_overlay.linkedViewChanged(self.p1.vb, self.p1_overlay.XAxis)
 
-    def update_p1_xrange(self):
+    def __update_p1_xrange(self) -> None:
         self.region.setZValue(10)
         minX, maxX = self.region.getRegion()
         self.p1.setXRange(minX, maxX, padding=0)
 
-    def update_region(self, _, viewRange):
-        rgn = viewRange[0]
-        self.region.setRegion(rgn)
-
-    def update_hover_info(self, evt):
+    def __update_hover_info(self, evt) -> None:
         pos = evt
         if self.p1.sceneBoundingRect().contains(pos):
             mousePoint = self.p1.vb.mapSceneToView(pos)
             index = int(mousePoint.x() / self.controller.seconds_per_sample)
             if 0 < index < self.controller.depth:
-                match self.controller.channel_enable:
-                    case [True, True]:
-                        self.hover_info.setHtml(
-                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.2g <br> <span style='color: red;font-size:13pt;'>ch1=%0.2f</span> <br> <span style='color: green;font-size=13pt;'>ch2=%0.2f</span></div>"  # noqa: E501
-                            % (
-                                mousePoint.x(),
-                                self.data_ch1[index],
-                                self.data_ch2[index],
+                # we try here because the index will be out of range when
+                # acquisition depth is changed in the middle of a run
+                try:
+                    match self.controller.channel_enable:
+                        case [True, True]:
+                            self.hover_info.setHtml(
+                                "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.2g <br> <span style='color: red;font-size:13pt;'>ch1=%0.2f</span> <br> <span style='color: green;font-size=13pt;'>ch2=%0.2f</span></div>"  # noqa: E501
+                                % (
+                                    mousePoint.x(),
+                                    self.data_ch1[index],
+                                    self.data_ch2[index],
+                                )
                             )
-                        )
-                    case [True, False]:
-                        self.hover_info.setHtml(
-                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.2g <br> <span style='color: red;font-size:13pt;'>ch1=%0.2f</span></div>"  # noqa: E501
-                            % (mousePoint.x(), self.data_ch1[index])
-                        )
-                    case [False, True]:
-                        self.hover_info.setHtml(
-                            "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.2g <br> <span style='color: green;font-size=13pt;'>ch2=%0.2f</span></div>"  # noqa: E501
-                            % (mousePoint.x(), self.data_ch2[index])
-                        )
-                    case [False, False]:
-                        pass
+                        case [True, False]:
+                            self.hover_info.setHtml(
+                                "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.2g <br> <span style='color: red;font-size:13pt;'>ch1=%0.2f</span></div>"  # noqa: E501
+                                % (mousePoint.x(), self.data_ch1[index])
+                            )
+                        case [False, True]:
+                            self.hover_info.setHtml(
+                                "<div style='background:rgba(255, 255, 255, 0.15);'><span style='font-size: 13pt;'>x=%0.2g <br> <span style='color: green;font-size=13pt;'>ch2=%0.2f</span></div>"  # noqa: E501
+                                % (mousePoint.x(), self.data_ch2[index])
+                            )
+                        case [False, False]:
+                            pass
+                except IndexError:
+                    pass
             self.vLine.setPos(mousePoint.x())
             self.hLine.setPos(mousePoint.y())
 
 
 class ChannelBox(QGroupBox):
-    def __init__(self, title: str, controller, parent=None):
+    def __init__(self, title: str, controller, parent=None) -> None:
         super().__init__(title, parent=parent)
         self.controller = controller
 
@@ -193,40 +227,24 @@ class ChannelBox(QGroupBox):
         self.slider_vbox.setSpacing(0)
 
         # vmax
-        self.vmax = QHBoxLayout()
-        self.vmax_label = QLabel("Vmax: ")
-        self.vmax_value = QLabel("N/A")
-        self.vmax.addWidget(self.vmax_label)
-        self.vmax.addWidget(self.vmax_value)
-        self.vmax.setAlignment(Qt.AlignLeft)  # type: ignore
-        self.vmax.addStretch()
+        self.vmax_label = self.__gen_label("Vmax: ", 40)
+        self.vmax_value = self.__gen_label("N/A", 45)
+        self.vmax = self.__gen_hbox([self.vmax_label, self.vmax_value])
 
         # vmin
-        self.vmin = QHBoxLayout()
-        self.vmin_label = QLabel("Vmin: ")
-        self.vmin_value = QLabel("N/A")
-        self.vmin.addWidget(self.vmin_label)
-        self.vmin.addWidget(self.vmin_value)
-        self.vmin.setAlignment(Qt.AlignLeft)  # type: ignore
-        self.vmin.addStretch()
+        self.vmin_label = self.__gen_label("Vmin: ", 40)
+        self.vmin_value = self.__gen_label("N/A", 75)
+        self.vmin = self.__gen_hbox([self.vmin_label, self.vmin_value])
 
         # Vpp
-        self.vpp = QHBoxLayout()
-        self.vpp_label = QLabel("Vpp: ")
-        self.vpp_value = QLabel("N/A")
-        self.vpp.addWidget(self.vpp_label)
-        self.vpp.addWidget(self.vpp_value)
-        self.vpp.setAlignment(Qt.AlignLeft)  # type: ignore
-        self.vpp.addStretch()
+        self.vpp_label = self.__gen_label("Vpp: ", 40)
+        self.vpp_value = self.__gen_label("N/A", 45)
+        self.vpp = self.__gen_hbox([self.vpp_label, self.vpp_value])
 
         # frequency
-        self.freq = QHBoxLayout()
-        self.freq_label = QLabel("Freq: ")
-        self.freq_value = QLabel("N/A")
-        self.freq.addWidget(self.freq_label)
-        self.freq.addWidget(self.freq_value)
-        self.freq.setAlignment(Qt.AlignLeft)  # type: ignore
-        self.freq.addStretch()
+        self.freq_label = self.__gen_label("Freq: ", 40)
+        self.freq_value = self.__gen_label("N/A", 75)
+        self.freq = self.__gen_hbox([self.freq_label, self.freq_value])
 
         layout.addWidget(QLabel("Scale"), 0, 0)
         layout.addLayout(self.slider_vbox, 0, 1)
@@ -243,44 +261,86 @@ class ChannelBox(QGroupBox):
                 self.scale_slider.valueChanged.connect(self.controller.set_ch2_yrange)
                 self.toggled.connect(self.controller.set_ch2_state)
 
+    # private methods
+
+    def __gen_label(self, default: str, width: int) -> QLabel:
+        label = QLabel(default)
+        label.setFixedWidth(width)
+        return label
+
+    def __gen_hbox(self, components: list[QLabel]) -> QHBoxLayout:
+        hbox = QHBoxLayout()
+        for component in components:
+            hbox.addWidget(component)
+        hbox.setAlignment(Qt.AlignLeft)  # type: ignore
+        hbox.addStretch()
+        return hbox
+
 
 class TimebaseBox(QGroupBox):
     def __init__(self, controller, parent=None):
         super().__init__("Timebase", parent=parent)
         self.controller = controller
 
-        layout = QVBoxLayout()
+        layout = QGridLayout()
         self.setLayout(layout)
 
-        self.timebase_options = [
-            "5 us",
-            "10 us",
-            "25 us",
-            "50 us",
-            "100 us",
-            "250 us",
-            "500 us",
-            "1 ms",
-            "2.5 ms",
-            "5 ms",
-            "10 ms",
-            "25 ms",
-            "50 ms",
-            "100 ms",
-            "250 ms",
+        # equivalent time
+        self.equiv_time = QLabel("50.00 us")
+
+        # sample rate
+        self.sample_rate_options = [
+            "25 MHz",
+            "12.5 MHz",
+            "5 MHz",
+            "2.5 MHz",
+            "1.25 MHz",
+            "500 kHz",
+            "250 kHz",
+            "125 kHz",
+            "50 kHz",
+            "25 kHz",
+            "12.5 kHz",
+            "5 kHz",
+            "2.5 kHz",
+            "1.25 kHz",
+            "500 Hz",
         ]
-        self.combobox_timebase = QComboBox()
-        self.combobox_timebase.addItems(self.timebase_options)
-        self.combobox_timebase.setCurrentIndex(0)
+        self.combobox_sample_rate = QComboBox()
+        self.combobox_sample_rate.addItems(self.sample_rate_options)
+        self.combobox_sample_rate.setCurrentIndex(0)
 
-        layout.addWidget(QLabel("time/div (1 div = 1/10 graph)"))
-        layout.addWidget(self.combobox_timebase)
+        # sample depth
+        self.sample_depth_options = [
+            "1250",
+            "2500",
+            "5000",
+            "12500",
+        ]
+        self.combobox_sample_depth = QComboBox()
+        self.combobox_sample_depth.addItems(self.sample_depth_options)
+        self.combobox_sample_depth.setCurrentIndex(0)
 
-        self.combobox_timebase.currentTextChanged.connect(self.set_timebase)
+        # equivalent time
+        layout.addWidget(QLabel("Equiv. time: "), 0, 0)
+        layout.addWidget(self.equiv_time, 0, 1)
+        # sample rate
+        layout.addWidget(QLabel("Sample rate: "), 1, 0)
+        layout.addWidget(self.combobox_sample_rate, 1, 1)
+        # sample depth
+        layout.addWidget(QLabel("Depth(1CH): "), 2, 0)
+        layout.addWidget(self.combobox_sample_depth, 2, 1)
 
-    def set_timebase(self):
-        timebase = self.combobox_timebase.currentText()
-        self.controller.set_timebase(timebase)
+        self.combobox_sample_rate.currentTextChanged.connect(self.__set_sample_rate)
+        self.combobox_sample_depth.currentTextChanged.connect(self.__set_sample_depth)
+
+    def __set_sample_rate(self):
+        sample_rate = self.combobox_sample_rate.currentText()
+        self.controller.set_sample_rate(sample_rate)
+
+    def __set_sample_depth(self):
+        sample_depth = self.combobox_sample_depth.currentText()
+        self.controller.set_sample_depth(sample_depth)
 
 
 class TriggerBox(QGroupBox):
@@ -318,12 +378,16 @@ class TriggerBox(QGroupBox):
         self.lineedit_trigger_threshold.setValidator(validator_ths)
         self.lineedit_trigger_threshold.setText("0.0")
 
+        # trigger channel
         layout.addWidget(QLabel("Trigger channel"), 0, 0, 1, 2)
         layout.addWidget(self.combobox_trigger_channel, 0, 2, 1, 2)
+        # slope
         layout.addWidget(QLabel("Trigger slope"), 1, 0, 1, 2)
         layout.addWidget(self.combobox_slope, 1, 2, 1, 2)
+        # trigger position
         layout.addWidget(QLabel("Trigger position (%)"), 2, 0, 1, 1)
         layout.addWidget(self.lineedit_trigger_position, 2, 1, 1, 1)
+        # trigger threshold
         layout.addWidget(QLabel("Trigger threshold (V)"), 2, 2, 1, 1)
         layout.addWidget(self.lineedit_trigger_threshold, 2, 3, 1, 1)
 
@@ -335,13 +399,13 @@ class TriggerBox(QGroupBox):
             self.controller.set_trigger_channel
         )
         self.lineedit_trigger_position.editingFinished.connect(
-            self.on_pos_lineedit_finished
+            self.__on_pos_lineedit_finished
         )
         self.lineedit_trigger_threshold.editingFinished.connect(
-            self.on_ths_lineedit_finished
+            self.__on_ths_lineedit_finished
         )
 
-    def on_pos_lineedit_finished(self):
+    def __on_pos_lineedit_finished(self):
         if int(self.lineedit_trigger_position.text()) > 100:
             self.lineedit_trigger_position.setText("100")
         elif int(self.lineedit_trigger_position.text()) < 0:
@@ -353,7 +417,7 @@ class TriggerBox(QGroupBox):
         )
         self.controller.set_trigger_position(tmp)
 
-    def on_ths_lineedit_finished(self):
+    def __on_ths_lineedit_finished(self):
         if float(self.lineedit_trigger_threshold.text()) > 5:
             self.lineedit_trigger_threshold.setText("5.0")
         elif float(self.lineedit_trigger_threshold.text()) < -5:
@@ -367,7 +431,7 @@ class AcquisitionBox(QGroupBox):
         super().__init__("Acquisition", parent=parent)
         self.controller = controller
 
-        self.is_running = False
+        self.is_running: bool = False
 
         layout = QVBoxLayout()
         self.setLayout(layout)
@@ -457,33 +521,21 @@ class DeviceBox(QGroupBox):
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        self.button_refresh = QPushButton("Refresh")
-        self.combobox_ports = QComboBox()
         self.button_connect = QPushButton("Connect")
 
-        layout.addWidget(self.button_refresh)
-        layout.addWidget(self.combobox_ports)
         layout.addWidget(self.button_connect)
 
-        self.button_refresh.clicked.connect(self.refresh_ports)
         self.button_connect.clicked.connect(self.connect_to_device)
-
-    def refresh_ports(self):
-        self.combobox_ports.clear()
-        self.combobox_ports.addItems(self.controller.get_ports_names())
 
     def connect_to_device(self):
         if not self.is_connected:
-            port = self.combobox_ports.currentText()
-            self.controller.connect_device(port)
-        else:
-            self.controller.disconnect_device()
-
-        self.is_connected = self.controller.is_device_connected
-        if self.is_connected:
+            self.controller.connect_device()
             self.button_connect.setText("Disconnect")
         else:
+            self.controller.disconnect_device()
             self.button_connect.setText("Connect")
+        # refresh status
+        self.is_connected = self.controller.is_device_connected
 
 
 class ControlPanel(QFrame):
@@ -502,17 +554,17 @@ class ControlPanel(QFrame):
         self.stats_panel = StatsBox()
         self.dev_panel = DeviceBox(self.controller)
 
-        self.layout = QGridLayout()  # type: ignore
-        self.layout.addWidget(self.ch1_panel, 0, 0, 1, 1)
-        self.layout.addWidget(self.ch2_panel, 0, 1, 1, 1)
-        self.layout.addWidget(self.time_panel, 1, 0, 1, 1)
-        self.layout.addWidget(self.acq_panel, 1, 1, 1, 1)
-        self.layout.addWidget(self.trigger_panel, 2, 0, 1, 2)
-        self.layout.addWidget(self.util_panel, 3, 0, 1, 2)
-        self.layout.addWidget(self.stats_panel, 4, 0, 1, 2)
-        self.layout.addWidget(self.dev_panel, 5, 0, 1, 2)
+        layout = QGridLayout()  # type: ignore
+        layout.addWidget(self.ch1_panel, 0, 0, 1, 1)
+        layout.addWidget(self.ch2_panel, 0, 1, 1, 1)
+        layout.addWidget(self.time_panel, 1, 0, 1, 1)
+        layout.addWidget(self.acq_panel, 1, 1, 1, 1)
+        layout.addWidget(self.trigger_panel, 2, 0, 1, 2)
+        layout.addWidget(self.util_panel, 3, 0, 1, 2)
+        layout.addWidget(self.stats_panel, 4, 0, 1, 2)
+        layout.addWidget(self.dev_panel, 5, 0, 1, 2)
 
-        self.setLayout(self.layout)
+        self.setLayout(layout)
 
 
 class MainWindow(QMainWindow):
@@ -527,6 +579,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Lovelace")
 
         self.screen = OscilloscopeScreen(self.controller)
+        self.screen.setMinimumSize(600, 600)
         self.control_panel = ControlPanel(self.controller)
 
         self.content_layout = QHBoxLayout()

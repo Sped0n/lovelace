@@ -9,3 +9,7 @@ class CmdContentError(Exception):
 
 class PacketCorruptError(Exception):
     pass
+
+
+class NoConnectionError(Exception):
+    pass
