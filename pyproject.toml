@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lovelace"
+dynamic = ["version"]
+description = "GUI for https://github.com/Sped0n/ada, powered by PySide6"
+authors = [
+  { name = "Sped0n<github.com/Sped0n>", email = "realsped0n@outlook.com" },
+]
+requires-python = ">=3.11.0"
+dependencies = [
+  "ftd2xx==1.3.3",
+  "numpy==1.26.1",
+  "pyqtgraph==0.13.3",
+  "PySide6==6.5.3",
+  "PySide6_Addons==6.5.3",
+  "PySide6_Essentials==6.5.3",
+]
