@@ -49,7 +49,7 @@ For FPGA source code, please refer to https://github.com/Sped0n/ada.
      python -m lovelace
      ```
      
-     To connect to the FPGA, click on the ﻿`Connec`t button on the bottom. Once the button text changes to ﻿`Disconnect`, you are ready to proceed. Click on ﻿`RUN` for continuous acquisition or ﻿`SINGLE` for a single capture.
+     To connect to the FPGA, click on the ﻿`Connect` button on the bottom. Once the button text changes to ﻿`Disconnect`, you are ready to proceed. Click on ﻿`RUN` for continuous acquisition or ﻿`SINGLE` for a single capture.
 
 ## Customization for your specific needs
 
